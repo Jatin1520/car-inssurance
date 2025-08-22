@@ -1,0 +1,66 @@
+import pandas as pd
+import numpy as np
+import random
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelEncoder
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import classification_report, confusion_matrix, roc_auc_score
+
+# -------------------------------
+# 1. Generate Synthetic Dataset
+# -------------------------------
+np.random.seed(42)
+n = 1000
+
+data = {
+    "CustomerID": np.arange(1001, 1001+n),
+    "Age": np.random.randint(18, 70, size=n),
+    "Gender": np.random.choice(["Male", "Female"], size=n),
+    "Vehicle_Age": np.random.choice(["<1 year", "2-5 years", "5+ years"], size=n),
+    "Vehicle_Type": np.random.choice(["Hatchback", "Sedan", "SUV"], size=n),
+    "Annual_Premium": np.random.randint(15000, 60000, size=n),
+    "Policy_Sales_Channel": np.random.randint(1, 200, size=n),
+    "Region_Code": np.random.randint(1, 50, size=n),
+    "Driving_License": np.random.choice([0, 1], size=n, p=[0.05, 0.95]),
+    "Previously_Insured": np.random.choice([0, 1], size=n, p=[0.7, 0.3]),
+}
+
+# Target: Claim outcome (1 = claim, 0 = no claim)
+data["Claim"] = np.where(
+    (data["Age"] < 30) & (data["Previously_Insured"] == 0) & (data["Vehicle_Age"] != "<1 year"),
+    np.random.choice([0, 1], size=n, p=[0.5, 0.5]),
+    np.random.choice([0, 1], size=n, p=[0.8, 0.2])
+)
+
+df = pd.DataFrame(data)
+df.to_csv("Car_Insurance_Claims.csv", index=False)
+print("✅ Synthetic dataset saved as Car_Insurance_Claims.csv")
+
+# -------------------------------
+# 2. Encode & Split Data
+# -------------------------------
+df_encoded = df.copy()
+le = LabelEncoder()
+for col in ["Gender", "Vehicle_Age", "Vehicle_Type"]:
+    df_encoded[col] = le.fit_transform(df_encoded[col])
+
+X = df_encoded.drop(["CustomerID", "Claim"], axis=1)
+y = df_encoded["Claim"]
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# -------------------------------
+# 3. Model Training
+# -------------------------------
+model = RandomForestClassifier(n_estimators=100, random_state=42)
+model.fit(X_train, y_train)
+
+y_pred = model.predict(X_test)
+y_prob = model.predict_proba(X_test)[:, 1]
+
+# -------------------------------
+# 4. Evaluation
+# -------------------------------
+print("Confusion Matrix:\n", confusion_matrix(y_test, y_pred))
+print("\nClassification Report:\n", classification_report(y_test, y_pred))
+print("\nROC-AUC Score:", roc_auc_score(y_test, y_prob))
